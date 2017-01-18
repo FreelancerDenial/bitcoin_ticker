@@ -22,3 +22,12 @@ type btc_charts struct {
 	Currency string  `json:"currency"`
 	AvgPrice float64 `json:"avg"`
 }
+
+type fixer_currency struct {
+	BaseMarker string      `json:"base"`
+	Currency   *fixer_euro `json:"rates"`
+}
+
+type fixer_euro struct {
+	UsdCurrency float64 `json:"USD"`
+}

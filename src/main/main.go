@@ -5,48 +5,50 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
 var (
-	BtceAdrr      = "https://btc-e.com/api/3/ticker/eur_usd-btc_usd-btc_eur"
-	BtcChurtsAdrr = "http://api.bitcoincharts.com/v1/markets.json"
+	BtceAddr      = "https://btc-e.com/api/3/ticker/eur_usd-btc_usd-btc_eur"
+	BtcChurtsAddr = "http://api.bitcoincharts.com/v1/markets.json"
+	FixerAddr     = "http://api.fixer.io/latest?base=EUR"
 )
 
-func BtceUpd() (btc_euro, btc_usd, eur_usd float64, ok bool) {
+func BtceUpd() (btc_euro, btc_usd, eur_usd float64, BTCAlive, CurrAlive int64) {
 	var BtceList *btce_ticker
 
 	client := &http.Client{}
-	responce, err := client.Get(BtceAdrr)
+	responce, err := client.Get(BtceAddr)
 	if err != nil {
 		log.Printf("Getting err on sending msg to API: %v", err)
-		return 0, 0, 0, false
+		return 0, 0, 0, 0, 0
 	}
 	defer responce.Body.Close()
 
 	err = json.NewDecoder(responce.Body).Decode(&BtceList)
 	if err != nil {
 		log.Printf("Getting err on reading HTML responce from API: %v", err)
-		return 0, 0, 0, false
+		return 0, 0, 0, 0, 0
 	}
 
-	return BtceList.BTCEuro.EuroCurrency, BtceList.BTCUsd.UsdCurrency, BtceList.EuroUsd.EuroUsdCurrency, true
+	return BtceList.BTCEuro.EuroCurrency, BtceList.BTCUsd.UsdCurrency, BtceList.EuroUsd.EuroUsdCurrency, 1, 1
 }
 
-func BtcChurtsUpd() (btc_euro, btc_usd, eur_usd float64, ok bool) {
+func BtcChurtsUpd() (btc_euro, btc_usd float64, BTCAlive int64) {
 	var BtcChurtsList []*btc_charts
 
 	client := &http.Client{}
-	responce, err := client.Get(BtcChurtsAdrr)
+	responce, err := client.Get(BtcChurtsAddr)
 	if err != nil {
 		log.Printf("Getting err on sending msg to API: %v", err)
-		return 0, 0, 0, false
+		return 0, 0, 0
 	}
 	defer responce.Body.Close()
 
 	err = json.NewDecoder(responce.Body).Decode(&BtcChurtsList)
 	if err != nil {
 		log.Printf("Getting err on reading HTML responce from API: %v", err)
-		return 0, 0, 0, false
+		return 0, 0, 0
 	}
 
 	var UsdSum, EurSum float64
@@ -66,7 +68,59 @@ func BtcChurtsUpd() (btc_euro, btc_usd, eur_usd float64, ok bool) {
 		}
 	}
 
-	return EurSum / EurCount, UsdSum / UsdCount, 0, true
+	return EurSum / EurCount, UsdSum / UsdCount, 1
+}
+
+func FixerCurrency() (eur_usd float64, CurrAlive int64) {
+	var CurrencyList *fixer_currency
+
+	client := &http.Client{}
+	responce, err := client.Get(FixerAddr)
+	if err != nil {
+		log.Printf("Getting err on sending msg to API: %v", err)
+		return 0, 0
+	}
+	defer responce.Body.Close()
+
+	err = json.NewDecoder(responce.Body).Decode(&CurrencyList)
+	if err != nil {
+		log.Printf("Getting err on reading HTML responce from API: %v", err)
+		return 0, 0
+	}
+
+	return CurrencyList.Currency.UsdCurrency, 1
+}
+
+func Ticker() {
+	var BTCEuroCurr, BTCUsdCurr, EuroUsdCurr float64
+
+	BTCEuroSourceOne, BTCUsdSourceOne, EuroUsdSourceOne, CountAliveBTCOne, CountAliveCurrOne := BtceUpd()
+
+	BTCEuroSourceTwo, BTCUsdSourceTwo, CountAliveBTCTwo := BtcChurtsUpd()
+
+	EuroUsdSourceTwo, CountAliveCurrTwo := FixerCurrency()
+
+	if BTCEuroSourceOne >= BTCEuroSourceTwo {
+		BTCEuroCurr = BTCEuroSourceOne
+	} else {
+		BTCEuroCurr = BTCEuroSourceTwo
+	}
+
+	if BTCUsdSourceOne >= BTCUsdSourceTwo {
+		BTCUsdCurr = BTCUsdSourceOne
+	} else {
+		BTCUsdCurr = BTCUsdSourceTwo
+	}
+
+	if EuroUsdSourceOne >= EuroUsdSourceTwo {
+		EuroUsdCurr = EuroUsdSourceOne
+	} else {
+		EuroUsdCurr = EuroUsdSourceTwo
+	}
+
+	fmt.Printf("Greater exchange rate:\nBTC/USD: %v EUR/USD: %v BTC/EUR: %v", BTCUsdCurr, EuroUsdCurr, BTCEuroCurr)
+	fmt.Printf("\nActive sources: BTC/USD (%v of %v)  EUR/USD (%v of %v)", CountAliveBTCOne+CountAliveBTCTwo, 2, CountAliveCurrOne+CountAliveCurrTwo, 2)
+	fmt.Println("\n ---------------------------------")
 
 }
 
@@ -74,9 +128,8 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	fmt.Println("Start working!")
 
-	a, b, c, flag := BtceUpd()
-	fmt.Println(a, b, c, flag)
-
-	a, b, c, flag = BtcChurtsUpd()
-	fmt.Println(a, b, c, flag)
+	for {
+		Ticker()
+		time.Sleep(time.Second * 10)
+	}
 }
