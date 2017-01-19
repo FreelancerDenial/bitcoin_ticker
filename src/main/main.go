@@ -8,10 +8,11 @@ import (
 	"time"
 )
 
-var (
+const (
 	BtceAddr      = "https://btc-e.com/api/3/ticker/eur_usd-btc_usd-btc_eur"
 	BtcChurtsAddr = "http://api.bitcoincharts.com/v1/markets.json"
 	FixerAddr     = "http://api.fixer.io/latest?base=EUR"
+	SourceCount   = 2
 )
 
 func BtceUpd() (btc_euro, btc_usd, eur_usd float64, BTCAlive, CurrAlive int64) {
@@ -119,17 +120,16 @@ func Ticker() {
 	}
 
 	fmt.Printf("Greater exchange rate:\nBTC/USD: %v EUR/USD: %v BTC/EUR: %v", BTCUsdCurr, EuroUsdCurr, BTCEuroCurr)
-	fmt.Printf("\nActive sources: BTC/USD (%v of %v)  EUR/USD (%v of %v)", CountAliveBTCOne+CountAliveBTCTwo, 2, CountAliveCurrOne+CountAliveCurrTwo, 2)
+	fmt.Printf("\nActive sources: BTC/USD (%v of %v) EUR/USD (%v of %v) BTC/EUR (%v of %v)", CountAliveBTCOne+CountAliveBTCTwo, SourceCount, CountAliveCurrOne+CountAliveCurrTwo, SourceCount, CountAliveBTCOne+CountAliveBTCTwo, SourceCount)
 	fmt.Println("\n ---------------------------------")
 
 }
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	fmt.Println("Start working!")
 
-	for {
+	tick := time.NewTicker(time.Second * 5)
+	for _ = range tick.C {
 		Ticker()
-		time.Sleep(time.Second * 10)
 	}
 }
